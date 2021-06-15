@@ -36,7 +36,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
                 listDecorators.add(itemsDecorators.get(i), i);
             }
         } catch (Exception ex) {
-            ex.getMessage();
+           System.err.println(ex.getMessage());
         }
     }
 
