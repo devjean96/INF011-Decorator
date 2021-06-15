@@ -5,10 +5,18 @@
  */
 package pizzaria;
 
-import decorators.AzeitonaDecorator;
-import decorators.QueijoDecorator;
 import interfaces.PizzaComponent;
+import java.io.File;
+import java.lang.reflect.Constructor;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.Icon;
 import javax.swing.JOptionPane;
+import javax.swing.UIManager;
+import util.UtilFile;
 
 /**
  *
@@ -21,12 +29,15 @@ public class MenuPrincipal extends javax.swing.JFrame {
      */
     public MenuPrincipal() {
         initComponents();
-        String[] itemsDecorators = {"Queijo", "Presunto", "Azeitona", "Bacon", "Atum"};
-        for (int i = 0; i < itemsDecorators.length; i++) {
-            listDecorators.add(itemsDecorators[i], i);
+        //String[] itemsDecorators = {"Queijo", "Presunto", "Azeitona", "Bacon", "Atum"};
+        try {
+            ArrayList<String> itemsDecorators = loadPluginDecorator();
+            for (int i = 0; i < itemsDecorators.size(); i++) {
+                listDecorators.add(itemsDecorators.get(i), i);
+            }
+        } catch (Exception ex) {
+            ex.getMessage();
         }
-        PizzaComponent pizza = new QueijoDecorator(new AzeitonaDecorator(new PizzaBasica()));
-        pizza.preparar();
     }
 
     /**
@@ -97,7 +108,11 @@ public class MenuPrincipal extends javax.swing.JFrame {
         jPanel1.add(jLabel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(194, 23, -1, -1));
 
         buttonGenerate.setText("Gerar");
-        buttonGenerate.setEnabled(false);
+        buttonGenerate.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                buttonGenerateActionPerformed(evt);
+            }
+        });
         jPanel1.add(buttonGenerate, new org.netbeans.lib.awtextra.AbsoluteConstraints(330, 230, -1, -1));
 
         listDecoratorsSelecteds.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -138,7 +153,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
 
     private void buttonSelectActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonSelectActionPerformed
         listDecoratorsSelecteds.add(listDecorators.getSelectedItem());
-    
+
         buttonRemove.setEnabled(((!buttonRemove.isEnabled()) && (0 != listDecoratorsSelecteds.getItems().length)
                 || (buttonRemove.isEnabled()) && (0 != listDecoratorsSelecteds.getItems().length)));
 
@@ -146,7 +161,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
             buttonUp.setEnabled(true);
             buttonDown.setEnabled(true);
         }
-        buttonGenerate.setEnabled(0 < listDecoratorsSelecteds.getItems().length);
+        //buttonGenerate.setEnabled(0 < listDecoratorsSelecteds.getItems().length);
 
     }//GEN-LAST:event_buttonSelectActionPerformed
 
@@ -159,7 +174,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
                 buttonUp.setEnabled(false);
                 buttonDown.setEnabled(false);
             }
-            buttonGenerate.setEnabled(1 <= listDecoratorsSelecteds.getItems().length);
+            // buttonGenerate.setEnabled(1 <= listDecoratorsSelecteds.getItems().length);
         } else {
             JOptionPane.showMessageDialog(jPanel1, "Selecione um item adicionado para remover");
         }
@@ -176,6 +191,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
                 listDecoratorsSelecteds.add(item, indice + 1);
                 listDecoratorsSelecteds.remove(indice);
                 listDecoratorsSelecteds.add(itemAux, indice);
+                listDecoratorsSelecteds.select(indice + 1);
             }
         } else {
             JOptionPane.showMessageDialog(jPanel1, "Selecione um item adicionado para descer");
@@ -199,11 +215,60 @@ public class MenuPrincipal extends javax.swing.JFrame {
                 listDecoratorsSelecteds.add(item, indice - 1);
                 listDecoratorsSelecteds.remove(indice);
                 listDecoratorsSelecteds.add(itemAux, indice);
+                listDecoratorsSelecteds.select(indice - 1);
             }
         } else {
             JOptionPane.showMessageDialog(jPanel1, "Selecione um item adicionado para subir");
         }
     }//GEN-LAST:event_buttonUpActionPerformed
+
+    private void buttonGenerateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buttonGenerateActionPerformed
+        final Integer SIM = 0;
+        Icon errorIcon = UIManager.getIcon("OptionPane.errorIcon");
+        Object[] possibilities = {"Sim", "Não"};
+        Integer resposta = (Integer) JOptionPane.showOptionDialog(jPanel1,
+                "Confirmar a geração da pizza?", "Pizzaria Decorator",
+                JOptionPane.YES_NO_OPTION, 1, errorIcon, possibilities, 0);
+
+        if (0 == resposta.compareTo(SIM)) {
+
+            PizzaComponent pizza = null;
+            String[] itemsPizza = listDecoratorsSelecteds.getItems();
+            ArrayList<Class> itemsDecorator = new ArrayList<>();
+
+            if (0 == itemsPizza.length) {
+                pizza = new PizzaBasica();
+            } else {
+                for (String item : itemsPizza) {
+                    item = "decorators." + item + "Decorator";
+                    try {
+                        Class metadecorator = Class.forName(item, true, ulc);
+                        itemsDecorator.add(metadecorator);
+                    } catch (Exception ex) {
+                        System.err.println(ex.getMessage());
+                    }
+                }
+
+                for (int j = (itemsDecorator.size() - 1); j >= 0; j--) {
+                    try {
+                        Constructor itemConstrucor = itemsDecorator.get(j).getConstructor(PizzaComponent.class);
+                        if (j == (itemsDecorator.size() - 1)) {
+                            pizza = (PizzaComponent) itemConstrucor.newInstance(new PizzaBasica());
+                        } else {
+                            pizza = (PizzaComponent) itemConstrucor.newInstance(pizza);
+                        }
+                    } catch (Exception ex) {
+                        System.err.println(ex.getMessage());
+                    }
+                }
+            }
+
+            pizza.preparar();
+            System.out.println("Pizza Gerada com Sucesso");
+            System.out.println("");
+            JOptionPane.showMessageDialog(jPanel1, "Pizza Gerada com Sucesso");
+        }
+    }//GEN-LAST:event_buttonGenerateActionPerformed
 
     private boolean isLastItem() {
         return listDecoratorsSelecteds.getSelectedIndex() == (listDecoratorsSelecteds.getItems().length - 1);
@@ -213,36 +278,21 @@ public class MenuPrincipal extends javax.swing.JFrame {
         return 0 == listDecoratorsSelecteds.getSelectedIndex();
     }
 
-//    private static void checkPluginDecorator(File file) throws Exception {
-//
-//        String extensaoArquivo = UtilArquivo.getFileExtension(file.getName());
-//        String[] plugins = UtilArquivo.getAllPlugins();
-//
-//        int i;
-//        URL[] jars = new URL[plugins.length];
-//        for (i = 0; i < plugins.length; i++) {
-//            jars[i] = (new File("./plugins/" + plugins[i])).toURL();
-//        }
-//        URLClassLoader ulc = new URLClassLoader(jars);
-//        boolean existePlugin = false;
-//        for (int j = 0; j < plugins.length; j++) {
-//            String factoryName = UtilArquivo.getFactoryName(plugins[j]);
-//            String namePlugin = UtilArquivo.getFactoryPlugin(plugins[j]);
-//            if (namePlugin.equals(extensaoArquivo)) {
-//                String className = factoryName.toLowerCase() + "." + factoryName;
-//                Class metaFactory = Class.forName(className, true, ulc);
-//
-//                Method getInstance = metaFactory.getDeclaredMethod("getInstance");
-//                IDEFactory factory = (IDEFactory) getInstance.invoke(null);
-//
-//                AppMain.createProducts(factory, file);
-//                existePlugin = true;
-//            }
-//        }
-//        if (!existePlugin) {
-//            JOptionPane.showMessageDialog(null, "Não existe plugin que suporte este arquivo");
-//        }
-//    }
+    private ArrayList<String> loadPluginDecorator() throws Exception {
+        String[] plugins = UtilFile.getAllPlugins();
+        ArrayList<String> pluginsName = new ArrayList<>();
+
+        int i;
+        URL[] jars = new URL[plugins.length];
+        for (i = 0; i < plugins.length; i++) {
+            jars[i] = (new File("./plugins/" + plugins[i])).toURL();
+        }
+        ulc = new URLClassLoader(jars);
+        for (int j = 0; j < plugins.length; j++) {
+            pluginsName.add(UtilFile.getDecoratorPlugin(plugins[j]));
+        }
+        return pluginsName;
+    }
 
     /**
      * @param args the command line arguments
@@ -278,7 +328,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
             }
         });
     }
-
+    private URLClassLoader ulc;
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton buttonDown;
     private javax.swing.JButton buttonGenerate;
